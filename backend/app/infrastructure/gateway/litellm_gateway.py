@@ -23,10 +23,17 @@ class LiteLLMGateway(ILLMGateway):
         openai_key: Optional[str] = None,
         gemini_key: Optional[str] = None,
         enable_failure_simulation: bool = True,
+        primary_model: str = "openai/nvidia/nemotron-3.5-lightning-30b-a3b",
+        primary_base_url: str = "https://integrate.api.nvidia.com/v1",
+        fallback_model: str = "gemini/gemini-3.5-flash-lite",
     ):
         self.enable_failure_simulation = enable_failure_simulation
+        self.primary_model = primary_model
+        self.primary_base_url = primary_base_url
+        self.fallback_model = fallback_model
         self.key_pool = self._build_key_pool(raw_keys_str, openai_key, gemini_key)
         self._init_cache()
+
 
     def _init_cache(self) -> None:
         """Enable local LiteLLM response caching."""
@@ -56,21 +63,22 @@ class LiteLLMGateway(ILLMGateway):
         for idx, key in enumerate(keys):
             key_id = f"key_{idx + 1}"
             if key.startswith("nvapi-"):
-                model = "openai/nvidia/nemotron-3.5-lightning-30b-a3b"
-                api_base = "https://integrate.api.nvidia.com/v1"
+                model = self.primary_model
+                api_base = self.primary_base_url
             elif key.startswith("AQ.") or key.startswith("AIza"):
-                model = "gemini/gemini-3.5-flash-lite"
+                model = self.fallback_model
                 api_base = None
             elif key.startswith("sk-"):
                 model = "openai/gpt-4o-mini"
                 api_base = None
             else:
                 if idx == 0:
-                    model = "openai/nvidia/nemotron-3.5-lightning-30b-a3b"
-                    api_base = "https://integrate.api.nvidia.com/v1"
+                    model = self.primary_model
+                    api_base = self.primary_base_url
                 else:
-                    model = "gemini/gemini-3.5-flash-lite"
+                    model = self.fallback_model
                     api_base = None
+
 
             pool.append(
                 ProviderKeyEntity(
