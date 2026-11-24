@@ -85,7 +85,8 @@ async def test_sessions_retrieval_after_turns(test_client):
 
 
 @pytest.mark.asyncio
-async def test_chat_endpoint_valid_request(test_client):
+async def test_chat_endpoint_valid_request(test_client, monkeypatch):
+    monkeypatch.setenv("LITELLM_MOCK_RESPONSE", "Test AI response")
     client, _ = test_client
     payload = {
         "session_id": "s-post-chat-1",

@@ -6,6 +6,7 @@ and LiteLLM response caching matching docs/PRD.md and ADR 001/003.
 
 import asyncio
 import logging
+import os
 import time
 from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
@@ -281,11 +282,13 @@ class LLMGateway:
                 fallback_attempts += 1
                 continue
 
+            mock_val = mock_response or os.getenv("LITELLM_MOCK_RESPONSE")
+
             try:
                 resp = await self.execute_key(
                     key_cfg=key_cfg,
                     messages=messages,
-                    mock_response=mock_response,
+                    mock_response=mock_val,
                     bypass_cache=is_simulation,
                 )
 
