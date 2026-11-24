@@ -70,8 +70,11 @@ class ChatResponseDTO(BaseModel):
 
     session_id: str = Field(..., description="Echo of client request session_id")
     reply: str = Field(..., min_length=1, description="Assistant generated text")
-    metadata: ChatMetadataDTO = Field(..., description="Telemetry metadata")
+    metadata: Any = Field(..., description="Telemetry metadata")
 
+
+
+from pydantic import BaseModel, Field, field_validator, model_serializer
 
 class MessageHistoryItemDTO(BaseModel):
     """Data Transfer Object representing a single message turn in session history."""
@@ -82,6 +85,18 @@ class MessageHistoryItemDTO(BaseModel):
         default=None,
         description="Turn metadata (attached to assistant turns only)",
     )
+
+    @model_serializer
+    def serialize_model(self) -> dict[str, Any]:
+        """Omit metadata field entirely when None (PRD Sec 3 requirement for user turns)."""
+        data: dict[str, Any] = {
+            "role": self.role,
+            "content": self.content,
+        }
+        if self.metadata is not None:
+            data["metadata"] = self.metadata
+        return data
+
 
 
 class SessionHistoryResponseDTO(BaseModel):
