@@ -28,27 +28,41 @@ class ChatService:
         x_simulate_failure: Optional[str] = None,
     ) -> ChatResponseDTO:
         """Process chat message, query previous context, invoke gateway, and persist turn."""
-        past_entities = await self._repository.get_messages(request.session_id)
+        past_turns = await self._repository.get_messages(request.session_id)
 
         llm_messages: list[dict[str, Any]] = []
         if request.system_prompt and request.system_prompt.strip():
             llm_messages.append({"role": "system", "content": request.system_prompt.strip()})
 
-        for entity in past_entities:
-            llm_messages.append({"role": entity.role, "content": entity.content})
+        for turn in past_turns:
+            role = turn.role if hasattr(turn, "role") else turn["role"]
+            content = turn.content if hasattr(turn, "content") else turn["content"]
+            llm_messages.append({"role": role, "content": content})
 
         llm_messages.append({"role": "user", "content": request.message})
 
-        reply_text, metadata = self._gateway.complete(
+        res = self._gateway.complete(
             messages=llm_messages,
             x_simulate_failure=x_simulate_failure,
         )
+        if hasattr(res, "__await__"):
+            reply_text, metadata = await res
+        else:
+            reply_text, metadata = res
+
+
+        from schemas import ChatMetadata
+
+        # Ensure metadata is converted into dict or ChatMetadata
+        meta_dict = metadata.model_dump() if hasattr(metadata, "model_dump") else metadata
+        if not isinstance(metadata, ChatMetadata):
+            metadata = ChatMetadata(**meta_dict)
 
         await self._repository.add_turn(
             session_id=request.session_id,
             user_content=request.message,
             assistant_content=reply_text,
-            metadata=metadata.model_dump(),
+            metadata=meta_dict,
         )
 
         return ChatResponseDTO(
@@ -57,20 +71,25 @@ class ChatService:
             metadata=metadata,
         )
 
+
     async def get_session_history(self, session_id: str) -> SessionHistoryResponseDTO:
         """Fetch session history excluding system prompt."""
         exists = await self._repository.session_exists(session_id)
         if not exists:
             raise HTTPException(status_code=404, detail="session not found")
 
-        entities = await self._repository.get_messages(session_id)
+        turns = await self._repository.get_messages(session_id)
         items: list[MessageHistoryItemDTO] = []
-        for entity in entities:
+        for turn in turns:
+            role = turn.role if hasattr(turn, "role") else turn["role"]
+            content = turn.content if hasattr(turn, "content") else turn["content"]
+            meta = turn.metadata if hasattr(turn, "metadata") else turn.get("metadata")
+            is_assistant = role == "assistant"
             items.append(
                 MessageHistoryItemDTO(
-                    role=entity.role,
-                    content=entity.content,
-                    metadata=entity.metadata if entity.is_assistant() else None,
+                    role=role,
+                    content=content,
+                    metadata=meta if is_assistant else None,
                 )
             )
 
