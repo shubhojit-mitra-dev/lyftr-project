@@ -2,25 +2,38 @@ from typing import Literal, Optional, Any
 from pydantic import BaseModel, Field, field_validator
 
 
-class ChatRequestDTO(BaseModel):
-    """Data Transfer Object for chat execution requests."""
+from typing import Annotated, Literal, Optional, Any
+from pydantic import BaseModel, Field, field_validator, model_serializer
 
-    session_id: str = Field(
-        ...,
-        min_length=1,
-        max_length=128,
-        description="Client-generated session identifier (1-128 chars)",
-    )
-    message: str = Field(
-        ...,
-        min_length=1,
-        max_length=4000,
-        description="User message content (1-4000 chars after trim)",
-    )
-    system_prompt: Optional[str] = Field(
-        default=None,
-        description="Optional session-scoped system prompt override",
-    )
+
+class ChatRequestDTO(BaseModel):
+    """Data Transfer Object for chat execution requests using Annotated fields."""
+
+    session_id: Annotated[
+        str,
+        Field(
+            ...,
+            min_length=1,
+            max_length=128,
+            description="Client-generated session identifier (1-128 chars)",
+        ),
+    ]
+    message: Annotated[
+        str,
+        Field(
+            ...,
+            min_length=1,
+            max_length=4000,
+            description="User message content (1-4000 chars after trim)",
+        ),
+    ]
+    system_prompt: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="Optional session-scoped system prompt override",
+        ),
+    ] = None
 
     @field_validator("message")
     @classmethod
@@ -44,25 +57,32 @@ class ChatRequestDTO(BaseModel):
 
 
 class ChatMetadataDTO(BaseModel):
-    """Data Transfer Object for LLM inference/caching telemetry metadata."""
+    """Data Transfer Object for telemetry metadata using Annotated fields."""
 
-    resolution_source: Literal["LIVE_INFERENCE", "LLM_CACHE"] = Field(
-        ...,
-        description="Resolution origin of response: LIVE_INFERENCE or LLM_CACHE",
-    )
-    model: str = Field(..., description="LiteLLM model name that produced reply")
-    latency_ms: int = Field(..., ge=0, description="Server-side latency in milliseconds")
-    input_tokens: int = Field(..., ge=0, description="Prompt tokens for this request only")
-    output_tokens: int = Field(..., ge=0, description="Completion tokens for this reply")
-    key_id: Optional[str] = Field(
-        default=None,
-        description="ID of key that answered (key_1, key_2...). null on cache hit",
-    )
-    fallback_attempts: int = Field(
-        default=0,
-        ge=0,
-        description="Failed provider attempts before success. 0 on cache hit",
-    )
+    resolution_source: Annotated[
+        Literal["LIVE_INFERENCE", "LLM_CACHE"],
+        Field(..., description="Resolution origin: LIVE_INFERENCE or LLM_CACHE"),
+    ]
+    model: Annotated[str, Field(..., description="LiteLLM model name that produced reply")]
+    latency_ms: Annotated[int, Field(..., ge=0, description="Server latency in milliseconds")]
+    input_tokens: Annotated[int, Field(..., ge=0, description="Prompt tokens for this request only")]
+    output_tokens: Annotated[int, Field(..., ge=0, description="Completion tokens for this reply")]
+    key_id: Annotated[
+        Optional[str],
+        Field(
+            default=None,
+            description="ID of key that answered (key_1, key_2...). null on cache hit",
+        ),
+    ] = None
+    fallback_attempts: Annotated[
+        int,
+        Field(
+            default=0,
+            ge=0,
+            description="Failed provider attempts before success. 0 on cache hit",
+        ),
+    ] = 0
+
 
 
 class ChatResponseDTO(BaseModel):
