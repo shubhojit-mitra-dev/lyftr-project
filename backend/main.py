@@ -58,7 +58,12 @@ app = create_application()
 
 
 # Backward compatibility aliases for existing tests
-from app.core.container import get_container as _gc
+from app.core.container import (
+    get_container as _gc,
+    get_repository as get_storage_dep,
+    get_gateway as get_gateway_dep,
+)
 storage = _gc().repository
 gateway = _gc().gateway
 settings = _gc()
+
