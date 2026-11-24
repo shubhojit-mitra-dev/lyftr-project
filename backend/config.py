@@ -11,22 +11,37 @@ load_dotenv()
 class Settings:
     """Settings loaded from environment variables with sensible defaults."""
 
-    def __init__(self) -> None:
-        self.DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:////data/app.db")
-        self.ALLOWED_ORIGINS: str = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
-        self.ENABLE_FAILURE_SIMULATION: bool = (
-            os.getenv("ENABLE_FAILURE_SIMULATION", "true").lower() in ("true", "1", "yes")
-        )
-        self.LLM_API_KEYS_RAW: str = os.getenv("LLM_API_KEYS", "")
-        self.OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
-        self.GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    @property
+    def DATABASE_URL(self) -> str:
+        return os.getenv("DATABASE_URL", "sqlite:////data/app.db")
+
+    @property
+    def ALLOWED_ORIGINS(self) -> str:
+        return os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+
+    @property
+    def ENABLE_FAILURE_SIMULATION(self) -> bool:
+        return os.getenv("ENABLE_FAILURE_SIMULATION", "true").lower() in ("true", "1", "yes")
+
+    @property
+    def LLM_API_KEYS_RAW(self) -> str:
+        return os.getenv("LLM_API_KEYS", "")
+
+    @property
+    def OPENAI_API_KEY(self) -> str:
+        return os.getenv("OPENAI_API_KEY", "")
+
+    @property
+    def GEMINI_API_KEY(self) -> str:
+        return os.getenv("GEMINI_API_KEY", "")
 
     @property
     def cors_origins(self) -> List[str]:
         """Return parsed list of allowed CORS origins."""
-        if not self.ALLOWED_ORIGINS or self.ALLOWED_ORIGINS.strip() == "*":
+        raw = self.ALLOWED_ORIGINS
+        if not raw or raw.strip() == "*":
             return ["*"]
-        return [origin.strip() for origin in self.ALLOWED_ORIGINS.split(",") if origin.strip()]
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
 
     def get_configured_keys(self) -> List[str]:
         """Return ordered list of available API keys.
