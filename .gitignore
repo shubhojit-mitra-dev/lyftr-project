@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+node_modules/
+dist/
+build/
+.data/
+data/
+*.db
+docs/walkthrough_*.md
