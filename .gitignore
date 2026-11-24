@@ -1,6 +1,7 @@
 .env
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 .pytest_cache/
 .coverage
 htmlcov/
@@ -10,4 +11,5 @@ build/
 .data/
 data/
 *.db
+.venv/
 docs/walkthrough_*.md
