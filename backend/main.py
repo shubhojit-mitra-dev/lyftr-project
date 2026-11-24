@@ -8,13 +8,14 @@ Provides the three mandatory endpoints from docs/PRD.md:
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config import settings
+from gateway import LLMGateway, gateway
 from schemas import (
     ChatMetadata,
     ChatRequest,
@@ -68,7 +69,12 @@ def get_storage_dep() -> StorageRepository:
     return storage
 
 
+def get_gateway_dep() -> LLMGateway:
+    return gateway
+
+
 StorageDep = Annotated[StorageRepository, Depends(get_storage_dep)]
+GatewayDep = Annotated[LLMGateway, Depends(get_gateway_dep)]
 
 
 @app.get(
@@ -129,20 +135,29 @@ async def get_session_history(
 async def chat_endpoint(
     request: ChatRequest,
     storage_repo: StorageDep,
+    gateway_service: GatewayDep,
+    x_simulate_failure: Optional[str] = Header(None, alias="X-Simulate-Failure"),
 ) -> ChatResponse:
-    # Phase 1: Core plumbing and stub execution
-    reply_text = f"Mock response for session '{request.session_id}': {request.message}"
-    metadata = ChatMetadata(
-        resolution_source="LIVE_INFERENCE",
-        model="mock-nemotron",
-        latency_ms=10,
-        input_tokens=len(request.message.split()),
-        output_tokens=len(reply_text.split()),
-        key_id="key_1",
-        fallback_attempts=0,
+    # 1. Retrieve prior session history (oldest first, without system prompt)
+    raw_history = await storage_repo.get_messages(request.session_id)
+
+    # 2. Construct full prompt turn list for LiteLLM
+    messages: list[dict[str, str]] = []
+    if request.system_prompt:
+        messages.append({"role": "system", "content": request.system_prompt})
+
+    for turn in raw_history:
+        messages.append({"role": turn["role"], "content": turn["content"]})
+
+    messages.append({"role": "user", "content": request.message})
+
+    # 3. Call LLM Gateway with failover and caching
+    reply_text, metadata = await gateway_service.complete(
+        messages=messages,
+        x_simulate_failure=x_simulate_failure,
     )
 
-    # Persist the turn atomically to SQLite
+    # 4. Atomically persist complete turn to SQLite
     await storage_repo.add_turn(
         session_id=request.session_id,
         user_content=request.message,
