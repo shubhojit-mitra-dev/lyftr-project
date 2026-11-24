@@ -5,7 +5,9 @@ import tempfile
 import pytest
 import aiosqlite
 
-from storage import StorageRepository, parse_sqlite_url, resolve_db_path
+from app.infrastructure.database.sqlite_repository import SQLiteMessageRepository
+StorageRepository = SQLiteMessageRepository
+, parse_sqlite_url, resolve_db_path
 
 
 @pytest.fixture

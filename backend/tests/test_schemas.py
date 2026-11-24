@@ -4,14 +4,15 @@ import json
 import pytest
 from pydantic import ValidationError
 
-from schemas import (
-    ChatMetadata,
-    ChatRequest,
-    ChatResponse,
-    HealthResponse,
-    MessageItem,
-    SessionHistoryResponse,
+from app.dto.chat_dto import (
+    ChatRequestDTO as ChatRequest,
+    ChatMetadataDTO as ChatMetadata,
+    ChatResponseDTO as ChatResponse,
+    MessageHistoryItemDTO as MessageItem,
+    SessionHistoryResponseDTO,
+    HealthResponseDTO as HealthResponse,
 )
+
 
 
 def test_chat_request_valid():

@@ -5,10 +5,22 @@ import tempfile
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from config import settings
-from gateway import LLMGateway, build_key_pool, gateway, parse_simulate_failure_header
-from main import app, get_gateway_dep, get_storage_dep
-from storage import StorageRepository
+from app.core.container import get_container, get_gateway as get_gateway_dep, get_repository as get_storage_dep
+from app.infrastructure.gateway.litellm_gateway import LiteLLMGateway as LLMGateway
+from app.infrastructure.database.sqlite_repository import SQLiteMessageRepository as StorageRepository
+from app.main import app
+
+gateway = get_container().gateway
+settings = get_container().app_config
+
+def build_key_pool(raw_keys):
+    gw = LLMGateway(raw_keys_str=",".join(raw_keys))
+    return gw.key_pool
+
+def parse_simulate_failure_header(header_val):
+    gw = LLMGateway(raw_keys_str="dummy_key_1,dummy_key_2")
+    return gw.parse_simulate_failure_header(header_val)
+
 
 
 @pytest.fixture

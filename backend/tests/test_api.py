@@ -5,8 +5,10 @@ import tempfile
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from main import app, get_storage_dep
-from storage import StorageRepository
+from app.main import app
+from app.core.container import get_repository as get_storage_dep
+from app.infrastructure.database.sqlite_repository import SQLiteMessageRepository as StorageRepository
+
 
 
 @pytest.fixture
