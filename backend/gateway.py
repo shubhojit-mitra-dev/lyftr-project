@@ -120,8 +120,36 @@ def build_key_pool(raw_keys: List[str]) -> List[KeyConfig]:
     return key_pool
 
 
+def parse_simulate_failure_header(header: Optional[str]) -> dict[str, int]:
+    """Parse X-Simulate-Failure request header.
+
+    Format: comma-separated <key_id>=<status> pairs or *=<status>.
+    Valid statuses: 429, 500, 502, 503.
+    """
+    if not header:
+        return {}
+
+    valid_statuses = {429, 500, 502, 503}
+    result: dict[str, int] = {}
+    pairs = [p.strip() for p in header.split(",") if p.strip()]
+
+    for pair in pairs:
+        if "=" not in pair:
+            continue
+        target, status_str = pair.split("=", 1)
+        target = target.strip()
+        try:
+            status_code = int(status_str.strip())
+            if status_code in valid_statuses:
+                result[target] = status_code
+        except ValueError:
+            continue
+
+    return result
+
+
 class LLMGateway:
-    """Resilient LLM Gateway with provider pool routing and response caching."""
+    """Resilient LLM Gateway with provider pool routing, failover, and caching."""
 
     def __init__(self) -> None:
         pass
@@ -134,6 +162,7 @@ class LLMGateway:
         self,
         messages: List[dict[str, str]],
         key_pool: List[KeyConfig],
+        start_time: float,
     ) -> Optional[Tuple[str, ChatMetadata]]:
         """Check if any model in the key pool has a cached response."""
         if not hasattr(litellm, "cache") or litellm.cache is None:
@@ -151,11 +180,12 @@ class LLMGateway:
                         content = choices[0].get("message", {}).get("content", "")
                         usage = cached.get("usage", {})
                         model_name = cached.get("model") or key_cfg.model
+                        latency_ms = max(1, int(round((time.perf_counter() - start_time) * 1000)))
 
                         metadata = ChatMetadata(
                             resolution_source="LLM_CACHE",
                             model=model_name,
-                            latency_ms=1,  # Sub-millisecond local cache hit
+                            latency_ms=latency_ms,
                             input_tokens=usage.get("prompt_tokens", 0) or 0,
                             output_tokens=usage.get("completion_tokens", 0) or 0,
                             key_id=None,
@@ -190,6 +220,131 @@ class LLMGateway:
 
         # Execute in worker thread to prevent event loop blocking
         return await asyncio.to_thread(litellm.completion, **kwargs)
+
+    async def complete(
+        self,
+        messages: List[dict[str, str]],
+        x_simulate_failure: Optional[str] = None,
+        mock_response: Optional[str] = None,
+        configured_keys: Optional[List[str]] = None,
+        enable_simulation: Optional[bool] = None,
+    ) -> Tuple[str, ChatMetadata]:
+        """Execute chat completion across provider pool with auto-fallback and caching.
+
+        Parameters:
+        - messages: Full formatted conversation turn list (system + history + current user).
+        - x_simulate_failure: Value of X-Simulate-Failure header (e.g. 'key_1=429').
+        - mock_response: Optional string to return for deterministic testing.
+        - configured_keys: Optional override for key pool during testing.
+        - enable_simulation: Optional override for failure simulation switch.
+
+        Returns:
+        - (reply_text, ChatMetadata)
+        """
+        from config import settings
+
+        start_time = time.perf_counter()
+
+        raw_keys = configured_keys if configured_keys is not None else settings.get_configured_keys()
+        key_pool = self.get_key_pool(raw_keys)
+        if not key_pool:
+            logger.error("Key pool is empty. No providers configured.")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="all providers unavailable",
+            )
+
+        sim_switch = (
+            enable_simulation if enable_simulation is not None else settings.ENABLE_FAILURE_SIMULATION
+        )
+        sim_map = parse_simulate_failure_header(x_simulate_failure) if sim_switch else {}
+        is_simulation = bool(sim_map)
+
+        # 1. Check cache when not simulating failure
+        if not is_simulation:
+            cached_result = self.check_cache(messages, key_pool, start_time)
+            if cached_result is not None:
+                return cached_result
+
+        # 2. Sequential fallback execution across provider pool
+        fallback_attempts = 0
+
+        for key_cfg in key_pool:
+            # Check for simulated failure on this key
+            simulated_status = sim_map.get(key_cfg.key_id) or sim_map.get("*") if is_simulation else None
+            if simulated_status is not None:
+                logger.info(
+                    "Simulating failure on %s with status HTTP %s",
+                    key_cfg.key_id,
+                    simulated_status,
+                )
+                fallback_attempts += 1
+                continue
+
+            try:
+                resp = await self.execute_key(
+                    key_cfg=key_cfg,
+                    messages=messages,
+                    mock_response=mock_response,
+                    bypass_cache=is_simulation,
+                )
+
+                # Extract reply text
+                choice = resp.choices[0]
+                content = choice.message.content
+                if not content and hasattr(choice.message, "reasoning_content"):
+                    content = choice.message.reasoning_content
+                reply = (content or "").strip()
+                if not reply:
+                    reply = "No response"
+
+                latency_ms = max(1, int(round((time.perf_counter() - start_time) * 1000)))
+                usage = getattr(resp, "usage", None)
+                input_tokens = getattr(usage, "prompt_tokens", 0) or 0
+                output_tokens = getattr(usage, "completion_tokens", 0) or 0
+                model_name = getattr(resp, "model", None) or key_cfg.model
+
+                # Check if LiteLLM internal cache hit occurred
+                is_cache_hit = getattr(resp, "_hidden_params", {}).get("cache_hit") is True
+                if is_cache_hit and not is_simulation:
+                    metadata = ChatMetadata(
+                        resolution_source="LLM_CACHE",
+                        model=model_name,
+                        latency_ms=latency_ms,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        key_id=None,
+                        fallback_attempts=0,
+                    )
+                else:
+                    metadata = ChatMetadata(
+                        resolution_source="LIVE_INFERENCE",
+                        model=model_name,
+                        latency_ms=latency_ms,
+                        input_tokens=input_tokens,
+                        output_tokens=output_tokens,
+                        key_id=key_cfg.key_id,
+                        fallback_attempts=fallback_attempts,
+                    )
+
+                return reply, metadata
+
+            except Exception as exc:
+                logger.warning(
+                    "Provider %s failed with exception: %s (%s). Attempting failover.",
+                    key_cfg.key_id,
+                    exc,
+                    type(exc).__name__,
+                )
+                fallback_attempts += 1
+                continue
+
+        # If all keys failed
+        logger.error("All providers in key pool failed (exhausted %s attempts).", fallback_attempts)
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="all providers unavailable",
+        )
 
 
 # Global singleton instance
