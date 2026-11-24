@@ -7,16 +7,20 @@ from starlette.middleware.base import BaseHTTPMiddleware
 logger = logging.getLogger(__name__)
 
 
+from fastapi.encoders import jsonable_encoder
+
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """AOP-style Global Exception filter ensuring uniform JSON error responses."""
+    if isinstance(exc, RequestValidationError):
+        return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
+
     if isinstance(exc, HTTPException):
         return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
-    if isinstance(exc, RequestValidationError):
-        return JSONResponse(status_code=422, content={"detail": exc.errors()})
-
     logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
     return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
 
 
 class LoggingAOPMiddleware(BaseHTTPMiddleware):
