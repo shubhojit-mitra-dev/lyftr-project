@@ -138,6 +138,37 @@ export default function App() {
           onToggleSimulation={() => setIsSimPanelOpen((prev) => !prev)}
         />
 
+        {/* Global Armed Simulation Banner when panel is closed */}
+        {!isSimPanelOpen && simulationHeader && (
+          <div className="bg-amber-950/80 border-b border-amber-500/40 px-4 py-2 text-xs text-amber-200 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
+              <span>
+                <strong>Failover Simulation Active:</strong> Header{' '}
+                <code className="font-mono bg-amber-900/60 px-1.5 py-0.5 rounded text-amber-100 border border-amber-500/30">
+                  X-Simulate-Failure: {simulationHeader}
+                </code>{' '}
+                armed on outgoing requests.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsSimPanelOpen(true)}
+                className="underline hover:text-white"
+              >
+                Change
+              </button>
+              <span className="text-amber-500">|</span>
+              <button
+                onClick={() => setSimulationHeader(null)}
+                className="hover:text-white font-medium"
+              >
+                Disarm
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Failover / Chaos Testing Panel */}
         {isSimPanelOpen && (
           <SimulationPanel
