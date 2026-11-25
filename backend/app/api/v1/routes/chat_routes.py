@@ -6,6 +6,7 @@ from app.dto.chat_dto import (
     ChatResponseDTO,
     SessionHistoryResponseDTO,
     HealthResponseDTO,
+    RootResponseDTO,
 )
 from app.services.chat_service import ChatService
 from app.api.v1.controllers.chat_controller import ChatController
@@ -26,6 +27,14 @@ def get_chat_controller(
     """Dependency provider injecting protocols into ChatService and ChatController."""
     service = ChatService(repository=repo, gateway=gw)
     return ChatController(service=service)
+
+
+@router.get("/", response_model=RootResponseDTO, status_code=200)
+async def root_endpoint(
+    controller: Annotated[ChatController, Depends(get_chat_controller)],
+) -> RootResponseDTO:
+    """Root entrypoint returning navigation links to documentation and system health check."""
+    return controller.handle_root()
 
 
 @router.get("/health", response_model=HealthResponseDTO, status_code=200)
