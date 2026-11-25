@@ -24,7 +24,10 @@ services:
     restart: always
     ports:
       - "80:80"
+      - "443:443"
       - "3000:3000"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
     depends_on:
       backend:
         condition: service_healthy
@@ -34,4 +37,3 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
-
