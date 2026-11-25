@@ -29,6 +29,18 @@ async def test_client():
 
 
 @pytest.mark.asyncio
+async def test_root_endpoint(test_client):
+    client, _ = test_client
+    resp = await client.get("/")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "message" in data
+    assert data["docs"] == "/docs"
+    assert data["redoc"] == "/redoc"
+    assert data["health"] == "/health"
+
+
+@pytest.mark.asyncio
 async def test_health_endpoint(test_client):
     client, _ = test_client
     resp = await client.get("/health")
