@@ -6,7 +6,12 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from app.core.container import get_container, get_gateway as get_gateway_dep, get_repository as get_storage_dep
-from app.infrastructure.gateway.litellm_gateway import LiteLLMGateway as LLMGateway
+from app.infrastructure.gateway.litellm_gateway import LiteLLMGateway
+
+class LLMGateway(LiteLLMGateway):
+    def __init__(self, raw_keys_str: str = "", enable_failure_simulation: bool = True):
+        super().__init__(raw_keys_str=raw_keys_str or "mock-nv-key,mock-gemini-key", enable_failure_simulation=enable_failure_simulation)
+
 from app.infrastructure.database.sqlite_repository import SQLiteMessageRepository as StorageRepository
 from app.main import app
 
