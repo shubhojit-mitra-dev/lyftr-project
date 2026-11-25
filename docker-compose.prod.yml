@@ -1,0 +1,37 @@
+services:
+  backend:
+    image: shubhojitmitradev/lyftr-backend:latest
+    container_name: llm_chatbot_backend
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=sqlite:////data/app.db
+      - ALLOWED_ORIGINS=http://104.214.177.88,http://lyftr-project.shubhojitmitra.com,https://lyftr-project.shubhojitmitra.com,http://localhost,http://localhost:3000
+      - ENABLE_FAILURE_SIMULATION=true
+    volumes:
+      - /home/azureuser/app/data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    image: shubhojitmitradev/lyftr-frontend:latest
+    container_name: llm_chatbot_frontend
+    restart: always
+    ports:
+      - "80:80"
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+
