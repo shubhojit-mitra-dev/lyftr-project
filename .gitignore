@@ -13,3 +13,4 @@ data/
 *.db
 .venv/
 docs/walkthrough_*.md
+*.pem
