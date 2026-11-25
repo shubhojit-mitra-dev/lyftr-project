@@ -7,11 +7,13 @@ Built strictly in accordance with [`docs/PRD.md`](docs/PRD.md) and governed by [
 ---
 
 ## 1. Live URLs
-- **Frontend Live Application**: Deploying to Azure VM (`http://<AZURE_VM_IP>:3000` / Cloudflare Pages / Vercel)
-- **Backend Live API**: Deploying to Azure VM (`http://<AZURE_VM_IP>:8000` / Fly.io / Render)
-  - Health Endpoint: `http://<AZURE_VM_IP>:8000/health`
-  - Chat Endpoint: `POST http://<AZURE_VM_IP>:8000/chat`
-  - Sessions Endpoint: `GET http://<AZURE_VM_IP>:8000/sessions/{session_id}/messages`
+- **Frontend Live Application**: [http://104.214.177.88/](http://104.214.177.88/) *(Custom Subdomain: [http://lyftr-project.shubhojitmitra.com/](http://lyftr-project.shubhojitmitra.com/))*
+- **Backend Live API**: [http://104.214.177.88/](http://104.214.177.88/)
+  - Health Endpoint: `GET http://104.214.177.88/health` (or `/api/health`)
+  - Chat Endpoint: `POST http://104.214.177.88/chat` (or `/api/chat`)
+  - Sessions Endpoint: `GET http://104.214.177.88/sessions/{session_id}/messages` (or `/api/sessions/{session_id}/messages`)
+  - Interactive Swagger Docs: [http://104.214.177.88/docs](http://104.214.177.88/docs)
+  - ReDoc Documentation: [http://104.214.177.88/redoc](http://104.214.177.88/redoc)
 
 ---
 
