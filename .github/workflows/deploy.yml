@@ -100,8 +100,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  deploy-to-azure:
-    name: Deploy to Azure VM
+  deploy-to-server:
+    name: Deploy to Production Server
     needs: build-and-push
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
@@ -109,29 +109,35 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup SSH & Deploy to Azure VM
+      - name: Setup SSH & Deploy to Server
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AZURE_VM_SSH_KEY }}" > ~/.ssh/azure_key.pem
-          chmod 600 ~/.ssh/azure_key.pem
+          echo "${{ secrets.DEPLOY_SSH_KEY || secrets.AZURE_VM_SSH_KEY }}" > ~/.ssh/deploy_key.pem
+          chmod 600 ~/.ssh/deploy_key.pem
+
+          DEPLOY_HOST="${{ secrets.DEPLOY_HOST || secrets.AZURE_VM_HOST }}"
+          DEPLOY_USER="${{ secrets.DEPLOY_USER || 'ec2-user' }}"
+
+          echo "=== Preparing remote directory ==="
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "mkdir -p ~/app/data"
 
           echo "=== Copying Production Compose File ==="
-          scp -i ~/.ssh/azure_key.pem -o StrictHostKeyChecking=no docker-compose.prod.yml azureuser@${{ secrets.AZURE_VM_HOST }}:/home/azureuser/app/docker-compose.yml
+          scp -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no docker-compose.prod.yml ${DEPLOY_USER}@${DEPLOY_HOST}:~/app/docker-compose.yml
 
-          echo "=== Deploying on Azure VM ==="
-          ssh -i ~/.ssh/azure_key.pem -o StrictHostKeyChecking=no azureuser@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
+          echo "=== Deploying on Server ==="
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "bash -s" << 'EOF'
             set -e
-            cd /home/azureuser/app
+            cd ~/app
 
-            cat << 'ENVFILE' > .env
+            cat << 'ENV_EOF' > .env
             LLM_API_KEYS=${{ secrets.LLM_API_KEYS }}
             DATABASE_URL=sqlite:////data/app.db
-            ALLOWED_ORIGINS=http://${{ secrets.AZURE_VM_HOST }},http://lyftr-project.shubhojitmitra.com,https://lyftr-project.shubhojitmitra.com,http://localhost,http://localhost:3000
+            ALLOWED_ORIGINS=http://15.207.106.204,http://lyftr-project.shubhojitmitra.com,https://lyftr-project.shubhojitmitra.com,http://localhost,http://localhost:3000
             ENABLE_FAILURE_SIMULATION=true
             PRIMARY_MODEL_NAME=${{ secrets.PRIMARY_MODEL_NAME }}
             PRIMARY_API_BASE=${{ secrets.PRIMARY_API_BASE }}
             FALLBACK_MODEL_NAME=${{ secrets.FALLBACK_MODEL_NAME }}
-            ENVFILE
+            ENV_EOF
             chmod 600 .env
 
             docker compose pull
