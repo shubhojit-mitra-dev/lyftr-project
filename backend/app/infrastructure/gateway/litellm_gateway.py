@@ -195,6 +195,7 @@ class LiteLLMGateway:
 
                 if provider.api_base:
                     kwargs["api_base"] = provider.api_base
+                    kwargs["custom_llm_provider"] = "openai"
                 if sim_map:
                     kwargs["caching"] = False
 
