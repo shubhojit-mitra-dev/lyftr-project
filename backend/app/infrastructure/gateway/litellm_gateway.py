@@ -70,11 +70,11 @@ class LiteLLMGateway:
             if key.startswith("nvapi-"):
                 model = self.primary_model
                 api_base = self.primary_base_url
-                display_model = "gemini-3.5-flash-lite" if idx > 0 else self.primary_model
+                display_model = self.primary_model
             elif key.startswith("AQ.") or key.startswith("AIza"):
                 model = self.fallback_model
                 api_base = None
-                display_model = "gemini-3.5-flash-lite"
+                display_model = self.fallback_model.replace("gemini/", "")
             elif key.startswith("sk-"):
                 model = "openai/gpt-4o-mini"
                 api_base = None
@@ -87,7 +87,7 @@ class LiteLLMGateway:
                 else:
                     model = self.fallback_model
                     api_base = None
-                    display_model = "gemini-3.5-flash-lite"
+                    display_model = self.fallback_model.replace("gemini/", "")
 
             pool.append(
                 ProviderKeyEntity(
