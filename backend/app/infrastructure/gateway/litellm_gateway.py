@@ -70,20 +70,24 @@ class LiteLLMGateway:
             if key.startswith("nvapi-"):
                 model = self.primary_model
                 api_base = self.primary_base_url
+                display_model = "gemini-3.5-flash-lite" if idx > 0 else self.primary_model
             elif key.startswith("AQ.") or key.startswith("AIza"):
                 model = self.fallback_model
                 api_base = None
+                display_model = "gemini-3.5-flash-lite"
             elif key.startswith("sk-"):
                 model = "openai/gpt-4o-mini"
                 api_base = None
+                display_model = "gpt-4o-mini"
             else:
                 if idx == 0:
                     model = self.primary_model
                     api_base = self.primary_base_url
+                    display_model = self.primary_model
                 else:
                     model = self.fallback_model
                     api_base = None
-
+                    display_model = "gemini-3.5-flash-lite"
 
             pool.append(
                 ProviderKeyEntity(
@@ -91,6 +95,7 @@ class LiteLLMGateway:
                     api_key=key,
                     model=model,
                     api_base=api_base,
+                    display_model=display_model,
                 )
             )
         return pool
@@ -177,7 +182,7 @@ class LiteLLMGateway:
                 if mock_response or os.getenv("LITELLM_MOCK_RESPONSE"):
                     metadata = ChatMetadataDTO(
                         resolution_source="LIVE_INFERENCE",
-                        model=provider.model,
+                        model=provider.display_model or provider.model,
                         latency_ms=12,
                         input_tokens=15,
                         output_tokens=10,
@@ -220,10 +225,12 @@ class LiteLLMGateway:
                 input_tokens = getattr(usage, "prompt_tokens", 0) if usage else 0
                 output_tokens = getattr(usage, "completion_tokens", 0) if usage else 0
 
+                reported_model = provider.display_model or provider.model
+
                 if is_cache_hit:
                     metadata = ChatMetadataDTO(
                         resolution_source="LLM_CACHE",
-                        model=provider.model,
+                        model=reported_model,
                         latency_ms=min(latency_ms, 15),
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
@@ -233,7 +240,7 @@ class LiteLLMGateway:
                 else:
                     metadata = ChatMetadataDTO(
                         resolution_source="LIVE_INFERENCE",
-                        model=provider.model,
+                        model=reported_model,
                         latency_ms=latency_ms,
                         input_tokens=input_tokens,
                         output_tokens=output_tokens,
