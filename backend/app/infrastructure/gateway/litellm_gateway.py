@@ -7,6 +7,11 @@ from fastapi import HTTPException
 import litellm
 from litellm import ModelResponse, Choices, Message, Usage
 
+from app.core.config.constants import (
+    DEFAULT_PRIMARY_MODEL,
+    DEFAULT_PRIMARY_API_BASE,
+    DEFAULT_FALLBACK_MODEL,
+)
 from app.domain.models.message import ProviderKeyEntity
 from app.dto.chat_dto import ChatMetadataDTO
 
@@ -22,9 +27,9 @@ class LiteLLMGateway:
         openai_key: Optional[str] = None,
         gemini_key: Optional[str] = None,
         enable_failure_simulation: bool = True,
-        primary_model: str = "openai/nvidia/nemotron-3.5-lightning-30b-a3b",
-        primary_base_url: str = "https://integrate.api.nvidia.com/v1",
-        fallback_model: str = "gemini/gemini-3.5-flash-lite",
+        primary_model: str = DEFAULT_PRIMARY_MODEL,
+        primary_base_url: str = DEFAULT_PRIMARY_API_BASE,
+        fallback_model: str = DEFAULT_FALLBACK_MODEL,
     ):
         self._mock_cache: dict[str, str] = {}
         self.enable_failure_simulation = enable_failure_simulation
