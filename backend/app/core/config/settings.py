@@ -1,9 +1,8 @@
 import os
-from pydantic_settings import BaseSettings if False else object
-from pydantic import BaseModel, Field
 
 
 class AppConfig:
+
     """Core application settings populated from environment variables."""
 
     def __init__(self) -> None:
