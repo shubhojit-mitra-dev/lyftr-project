@@ -5,10 +5,32 @@ import tempfile
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from config import settings
-from gateway import LLMGateway, build_key_pool, gateway, parse_simulate_failure_header
-from main import app, get_gateway_dep, get_storage_dep
-from storage import StorageRepository
+from app.core.config.constants import (
+    DEFAULT_PRIMARY_MODEL,
+    DEFAULT_PRIMARY_API_BASE,
+    DEFAULT_FALLBACK_MODEL,
+)
+from app.core.container import get_container, get_gateway as get_gateway_dep, get_repository as get_storage_dep
+from app.infrastructure.gateway.litellm_gateway import LiteLLMGateway
+
+class LLMGateway(LiteLLMGateway):
+    def __init__(self, raw_keys_str: str = "", enable_failure_simulation: bool = True):
+        super().__init__(raw_keys_str=raw_keys_str or "mock-nv-key,mock-gemini-key", enable_failure_simulation=enable_failure_simulation)
+
+from app.infrastructure.database.sqlite_repository import SQLiteMessageRepository as StorageRepository
+from app.main import app
+
+gateway = get_container().gateway
+settings = get_container().app_config
+
+def build_key_pool(raw_keys):
+    gw = LLMGateway(raw_keys_str=",".join(raw_keys))
+    return gw.key_pool
+
+def parse_simulate_failure_header(header_val):
+    gw = LLMGateway(raw_keys_str="dummy_key_1,dummy_key_2")
+    return gw.parse_simulate_failure_header(header_val)
+
 
 
 @pytest.fixture
@@ -24,12 +46,12 @@ def test_build_key_pool():
     assert len(pool) == 4
     # key_1: NVIDIA NIM
     assert pool[0].key_id == "key_1"
-    assert pool[0].model == "openai/nvidia/nemotron-3.5-lightning-30b-a3b"
-    assert pool[0].api_base == "https://integrate.api.nvidia.com/v1"
+    assert pool[0].model == DEFAULT_PRIMARY_MODEL
+    assert pool[0].api_base == DEFAULT_PRIMARY_API_BASE
 
     # key_2: Gemini
     assert pool[1].key_id == "key_2"
-    assert pool[1].model == "gemini/gemini-3.5-flash-lite"
+    assert pool[1].model == DEFAULT_FALLBACK_MODEL
     assert pool[1].api_base is None
 
     # key_3: OpenAI
@@ -38,7 +60,7 @@ def test_build_key_pool():
 
     # key_4: Alternating index fallback
     assert pool[3].key_id == "key_4"
-    assert pool[3].model == "gemini/gemini-3.5-flash-lite"
+    assert pool[3].model == DEFAULT_FALLBACK_MODEL
 
 
 def test_parse_simulate_failure_header():

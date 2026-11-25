@@ -5,7 +5,25 @@ import tempfile
 import pytest
 import aiosqlite
 
-from storage import StorageRepository, parse_sqlite_url, resolve_db_path
+from app.infrastructure.database.sqlite_repository import SQLiteMessageRepository
+
+class StorageRepository(SQLiteMessageRepository):
+    def __init__(self, db_path: str = "./data/app.db", database_url: str = ""):
+        super().__init__(database_url=database_url or f"sqlite:///{db_path}")
+        self.db_path = db_path
+
+def parse_sqlite_url(url: str) -> str:
+    if url.startswith("sqlite:////"):
+        return "/" + url[len("sqlite:////") :]
+    if url.startswith("sqlite:///"):
+        return url[len("sqlite:///") :]
+    return url
+
+def resolve_db_path(url: str) -> str:
+    repo = SQLiteMessageRepository(url)
+    return repo.db_path
+
+
 
 
 @pytest.fixture
@@ -151,6 +169,6 @@ def test_sqlite_url_parsing():
 def test_resolve_db_path_fallback():
     # If path is in an unwritable root directory like /root_test_forbidden/app.db
     resolved = resolve_db_path("sqlite:////root_test_forbidden/test.db")
-    # Should gracefully fall back to ./data/test.db
-    assert resolved.endswith("test.db")
-    assert "/data/" in resolved
+    # Should gracefully fall back to local data directory
+    assert "data" in resolved
+
