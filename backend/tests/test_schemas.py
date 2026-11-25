@@ -10,8 +10,10 @@ from app.dto.chat_dto import (
     ChatResponseDTO as ChatResponse,
     MessageHistoryItemDTO as MessageItem,
     SessionHistoryResponseDTO,
+    SessionHistoryResponseDTO as SessionHistoryResponse,
     HealthResponseDTO as HealthResponse,
 )
+
 
 
 
