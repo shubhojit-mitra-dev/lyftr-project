@@ -7,10 +7,10 @@ services:
       - .env
     environment:
       - DATABASE_URL=sqlite:////data/app.db
-      - ALLOWED_ORIGINS=http://104.214.177.88,http://lyftr-project.shubhojitmitra.com,https://lyftr-project.shubhojitmitra.com,http://localhost,http://localhost:3000
+      - ALLOWED_ORIGINS=http://15.207.106.204,http://104.214.177.88,http://lyftr-project.shubhojitmitra.com,https://lyftr-project.shubhojitmitra.com,http://localhost,http://localhost:3000
       - ENABLE_FAILURE_SIMULATION=true
     volumes:
-      - /home/azureuser/app/data:/data
+      - ./data:/data
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
       interval: 10s
