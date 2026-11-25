@@ -1,8 +1,12 @@
 import os
+from app.core.config.constants import (
+    DEFAULT_PRIMARY_MODEL,
+    DEFAULT_PRIMARY_API_BASE,
+    DEFAULT_FALLBACK_MODEL,
+)
 
 
 class AppConfig:
-
     """Core application settings populated from environment variables."""
 
     def __init__(self) -> None:
@@ -20,13 +24,13 @@ class AppConfig:
         self.allowed_origins: list[str] = [
             o.strip() for o in origins.split(",") if o.strip()
         ]
-        # Abstracted provider defaults
+        # Abstracted provider defaults from centralized constants
         self.primary_model: str = os.getenv(
-            "PRIMARY_MODEL_NAME", "openai/nvidia/nemotron-3.5-lightning-30b-a3b"
+            "PRIMARY_MODEL_NAME", DEFAULT_PRIMARY_MODEL
         )
         self.primary_base_url: str = os.getenv(
-            "PRIMARY_API_BASE", "https://integrate.api.nvidia.com/v1"
+            "PRIMARY_API_BASE", DEFAULT_PRIMARY_API_BASE
         )
         self.fallback_model: str = os.getenv(
-            "FALLBACK_MODEL_NAME", "gemini/gemini-3.5-flash-lite"
+            "FALLBACK_MODEL_NAME", DEFAULT_FALLBACK_MODEL
         )
