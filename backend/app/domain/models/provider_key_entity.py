@@ -10,3 +10,4 @@ class ProviderKeyEntity:
     api_key: str
     model: str
     api_base: Optional[str] = None
+    display_model: Optional[str] = None
