@@ -7,13 +7,14 @@ Built strictly in accordance with [`docs/PRD.md`](docs/PRD.md) and governed by [
 ---
 
 ## 1. Live URLs
-- **Frontend Live Application**: [http://104.214.177.88/](http://104.214.177.88/) *(Custom Subdomain: [http://lyftr-project.shubhojitmitra.com/](http://lyftr-project.shubhojitmitra.com/))*
-- **Backend Live API**: [http://104.214.177.88/](http://104.214.177.88/)
-  - Health Endpoint: `GET http://104.214.177.88/health` (or `/api/health`)
-  - Chat Endpoint: `POST http://104.214.177.88/chat` (or `/api/chat`)
-  - Sessions Endpoint: `GET http://104.214.177.88/sessions/{session_id}/messages` (or `/api/sessions/{session_id}/messages`)
-  - Interactive Swagger Docs: [http://104.214.177.88/docs](http://104.214.177.88/docs)
-  - ReDoc Documentation: [http://104.214.177.88/redoc](http://104.214.177.88/redoc)
+- **Production Secure Application (HTTPS)**: [https://lyftr-project.shubhojitmitra.com/](https://lyftr-project.shubhojitmitra.com/)
+- **Production API & Endpoints**:
+  - Health Endpoint: [https://lyftr-project.shubhojitmitra.com/health](https://lyftr-project.shubhojitmitra.com/health) (or `/api/health`)
+  - Chat Endpoint: `POST https://lyftr-project.shubhojitmitra.com/chat` (or `/api/chat`)
+  - Sessions Endpoint: `GET https://lyftr-project.shubhojitmitra.com/sessions/{session_id}/messages`
+  - Interactive Swagger Docs: [https://lyftr-project.shubhojitmitra.com/docs](https://lyftr-project.shubhojitmitra.com/docs)
+  - ReDoc Documentation: [https://lyftr-project.shubhojitmitra.com/redoc](https://lyftr-project.shubhojitmitra.com/redoc)
+- **Direct IP Fallback (HTTP)**: [http://104.214.177.88/](http://104.214.177.88/) (or port 3000)
 
 ---
 
