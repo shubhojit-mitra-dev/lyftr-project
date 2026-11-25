@@ -4,6 +4,7 @@ from app.dto.chat_dto import (
     ChatResponseDTO,
     SessionHistoryResponseDTO,
     HealthResponseDTO,
+    RootResponseDTO,
 )
 from app.services.chat_service import ChatService
 
@@ -13,6 +14,14 @@ class ChatController:
 
     def __init__(self, service: ChatService) -> None:
         self._service = service
+
+    def handle_root(self) -> RootResponseDTO:
+        return RootResponseDTO(
+            message="Welcome to LLM Chatbot Gateway API. Interactive API documentation is available at /docs, alternative documentation at /redoc, and health check at /health.",
+            docs="/docs",
+            redoc="/redoc",
+            health="/health",
+        )
 
     async def handle_health_check(self) -> HealthResponseDTO:
         return await self._service.check_health()
