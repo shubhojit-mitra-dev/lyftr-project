@@ -13,3 +13,4 @@ __all__ = [
     "DEFAULT_PRIMARY_API_BASE",
     "DEFAULT_FALLBACK_MODEL",
 ]
+
