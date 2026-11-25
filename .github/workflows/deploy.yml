@@ -125,32 +125,34 @@ jobs:
           scp -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no docker-compose.prod.yml ${DEPLOY_USER}@${DEPLOY_HOST}:~/app/docker-compose.yml
 
           echo "=== Deploying on Server ==="
-          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "bash -s" << 'EOF'
-            set -e
-            cd ~/app
+          ssh -i ~/.ssh/deploy_key.pem -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "bash -s -- '${DEPLOY_HOST}'" << 'DEPLOY_SCRIPT'
+set -e
+HOST_IP="$1"
+cd ~/app
+mkdir -p data
 
-            cat << 'ENV_EOF' > .env
-            LLM_API_KEYS=${{ secrets.LLM_API_KEYS }}
-            DATABASE_URL=sqlite:////data/app.db
-            ALLOWED_ORIGINS=http://15.207.106.204,http://lyftr-project.shubhojitmitra.com,https://lyftr-project.shubhojitmitra.com,http://localhost,http://localhost:3000
-            ENABLE_FAILURE_SIMULATION=true
-            PRIMARY_MODEL_NAME=${{ secrets.PRIMARY_MODEL_NAME }}
-            PRIMARY_API_BASE=${{ secrets.PRIMARY_API_BASE }}
-            FALLBACK_MODEL_NAME=${{ secrets.FALLBACK_MODEL_NAME }}
-            ENV_EOF
-            chmod 600 .env
+cat << 'ENV_EOF' > .env
+LLM_API_KEYS=${{ secrets.LLM_API_KEYS }}
+DATABASE_URL=sqlite:////data/app.db
+ALLOWED_ORIGINS=http://${HOST_IP},https://${HOST_IP},http://lyftr-project.shubhojitmitra.com,https://lyftr-project.shubhojitmitra.com,http://localhost,http://localhost:3000
+ENABLE_FAILURE_SIMULATION=true
+PRIMARY_MODEL_NAME=${{ secrets.PRIMARY_MODEL_NAME }}
+PRIMARY_API_BASE=${{ secrets.PRIMARY_API_BASE }}
+FALLBACK_MODEL_NAME=${{ secrets.FALLBACK_MODEL_NAME }}
+ENV_EOF
+chmod 600 .env
 
-            docker compose pull
-            docker compose up -d --remove-orphans
+docker compose pull
+docker compose up -d --remove-orphans
 
-            for i in $(seq 1 12); do
-              if curl -s -f http://127.0.0.1/health > /dev/null; then
-                echo "Deployment Health Check Passed!"
-                curl -s http://127.0.0.1/health
-                exit 0
-              fi
-              echo "Waiting for healthy backend... ($i/12)"
-              sleep 5
-            done
-            exit 1
-          EOF
+for i in $(seq 1 12); do
+  if curl -s -f http://127.0.0.1/health > /dev/null; then
+    echo "Deployment Health Check Passed!"
+    curl -s http://127.0.0.1/health
+    exit 0
+  fi
+  echo "Waiting for healthy backend... ($i/12)"
+  sleep 5
+done
+exit 1
+DEPLOY_SCRIPT
