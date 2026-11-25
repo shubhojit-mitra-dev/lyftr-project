@@ -8,13 +8,12 @@ import litellm
 from litellm import ModelResponse, Choices, Message, Usage
 
 from app.domain.models.message import ProviderKeyEntity
-from app.domain.interfaces.gateway_interface import ILLMGateway
 from app.dto.chat_dto import ChatMetadataDTO
 
 logger = logging.getLogger(__name__)
 
 
-class LiteLLMGateway(ILLMGateway):
+class LiteLLMGateway:
     """Clean LiteLLM Gateway implementation managing caching and failover."""
 
     def __init__(
@@ -27,6 +26,7 @@ class LiteLLMGateway(ILLMGateway):
         primary_base_url: str = "https://integrate.api.nvidia.com/v1",
         fallback_model: str = "gemini/gemini-3.5-flash-lite",
     ):
+        self._mock_cache: dict[str, str] = {}
         self.enable_failure_simulation = enable_failure_simulation
         self.primary_model = primary_model
         self.primary_base_url = primary_base_url
@@ -38,7 +38,7 @@ class LiteLLMGateway(ILLMGateway):
     def _init_cache(self) -> None:
         """Enable local LiteLLM response caching."""
         try:
-            litellm.enable_cache(type="local")
+            litellm.enable_cache(type="local")  # type: ignore[arg-type]
             logger.info("LiteLLM response caching enabled (type=local)")
         except Exception as e:
             logger.warning(f"Could not initialize litellm cache: {e}")
@@ -109,40 +109,48 @@ class LiteLLMGateway(ILLMGateway):
                     pass
         return result
 
-    def complete(
+    async def complete(
         self,
         messages: list[dict[str, Any]],
         x_simulate_failure: Optional[str] = None,
+        configured_keys: Optional[list[str]] = None,
+        mock_response: Optional[str] = None,
+        enable_simulation: Optional[bool] = None,
     ) -> tuple[str, ChatMetadataDTO]:
         """Execute chat completion with caching, simulation interception, and auto-failover."""
-        sim_map = self.parse_simulate_failure_header(x_simulate_failure)
+        effective_sim = self.enable_failure_simulation if enable_simulation is None else enable_simulation
+        sim_map = self.parse_simulate_failure_header(x_simulate_failure) if effective_sim else {}
+
         start_time = time.perf_counter()
         fallback_attempts = 0
         last_exception: Optional[Exception] = None
 
+        key_pool = self._build_key_pool(",".join(configured_keys), None, None) if configured_keys else self.key_pool
+
         # Simple mock response support for tests when set
-        mock_env = os.getenv("LITELLM_MOCK_RESPONSE")
+        mock_env = mock_response or os.getenv("LITELLM_MOCK_RESPONSE")
         if mock_env and not sim_map:
             # Check if this exact message list has been seen in mock session
             if not hasattr(self, "_mock_cache"):
-                self._mock_cache = set()
+                self._mock_cache = {}
             cache_key = str([(m.get("role"), m.get("content")) for m in messages])
             if cache_key in self._mock_cache:
+                cached_text = self._mock_cache[cache_key]
                 metadata = ChatMetadataDTO(
                     resolution_source="LLM_CACHE",
-                    model=self.key_pool[0].model if self.key_pool else "mock-model",
+                    model=key_pool[0].model if key_pool else "mock-model",
                     latency_ms=2,
                     input_tokens=15,
                     output_tokens=10,
                     key_id=None,
                     fallback_attempts=0,
                 )
-                return mock_env, metadata
+                return cached_text, metadata
             else:
-                self._mock_cache.add(cache_key)
+                self._mock_cache[cache_key] = mock_env
                 metadata = ChatMetadataDTO(
                     resolution_source="LIVE_INFERENCE",
-                    model=self.key_pool[0].model if self.key_pool else "mock-model",
+                    model=key_pool[0].model if key_pool else "mock-model",
                     latency_ms=10,
                     input_tokens=15,
                     output_tokens=10,
@@ -151,9 +159,7 @@ class LiteLLMGateway(ILLMGateway):
                 )
                 return mock_env, metadata
 
-        for provider in self.key_pool:
-
-
+        for provider in key_pool:
             target_status = sim_map.get("*") or sim_map.get(provider.key_id)
             if target_status is not None:
                 fallback_attempts += 1
@@ -163,11 +169,25 @@ class LiteLLMGateway(ILLMGateway):
                 continue
 
             try:
+                if mock_response or os.getenv("LITELLM_MOCK_RESPONSE"):
+                    metadata = ChatMetadataDTO(
+                        resolution_source="LIVE_INFERENCE",
+                        model=provider.model,
+                        latency_ms=12,
+                        input_tokens=15,
+                        output_tokens=10,
+                        key_id=provider.key_id,
+                        fallback_attempts=fallback_attempts,
+                    )
+                    res_text = mock_response or os.getenv("LITELLM_MOCK_RESPONSE") or ""
+                    return res_text, metadata
+
                 kwargs: dict[str, Any] = {
                     "model": provider.model,
                     "messages": messages,
                     "api_key": provider.api_key,
                 }
+
                 if provider.api_base:
                     kwargs["api_base"] = provider.api_base
                 if sim_map:
