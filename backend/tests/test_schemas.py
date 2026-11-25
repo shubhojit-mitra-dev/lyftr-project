@@ -4,6 +4,7 @@ import json
 import pytest
 from pydantic import ValidationError
 
+from app.core.config.constants import DEFAULT_PRIMARY_MODEL
 from app.dto.chat_dto import (
     ChatRequestDTO as ChatRequest,
     ChatMetadataDTO as ChatMetadata,
@@ -53,7 +54,7 @@ def test_chat_request_rejects_session_id_exceeding_128_chars():
 def test_chat_metadata_live_inference():
     meta = ChatMetadata(
         resolution_source="LIVE_INFERENCE",
-        model="nvidia/nemotron-3.5-lightning-30b-a3b",
+        model=DEFAULT_PRIMARY_MODEL,
         latency_ms=750,
         input_tokens=30,
         output_tokens=15,
@@ -69,7 +70,7 @@ def test_chat_metadata_live_inference():
 def test_chat_metadata_cache_hit():
     meta = ChatMetadata(
         resolution_source="LLM_CACHE",
-        model="nvidia/nemotron-3.5-lightning-30b-a3b",
+        model=DEFAULT_PRIMARY_MODEL,
         latency_ms=12,
         input_tokens=30,
         output_tokens=15,
