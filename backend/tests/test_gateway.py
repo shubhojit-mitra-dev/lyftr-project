@@ -5,6 +5,11 @@ import tempfile
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from app.core.config.constants import (
+    DEFAULT_PRIMARY_MODEL,
+    DEFAULT_PRIMARY_API_BASE,
+    DEFAULT_FALLBACK_MODEL,
+)
 from app.core.container import get_container, get_gateway as get_gateway_dep, get_repository as get_storage_dep
 from app.infrastructure.gateway.litellm_gateway import LiteLLMGateway
 
@@ -41,12 +46,12 @@ def test_build_key_pool():
     assert len(pool) == 4
     # key_1: NVIDIA NIM
     assert pool[0].key_id == "key_1"
-    assert pool[0].model == "openai/nvidia/nemotron-3.5-lightning-30b-a3b"
-    assert pool[0].api_base == "https://integrate.api.nvidia.com/v1"
+    assert pool[0].model == DEFAULT_PRIMARY_MODEL
+    assert pool[0].api_base == DEFAULT_PRIMARY_API_BASE
 
     # key_2: Gemini
     assert pool[1].key_id == "key_2"
-    assert pool[1].model == "gemini/gemini-3.5-flash-lite"
+    assert pool[1].model == DEFAULT_FALLBACK_MODEL
     assert pool[1].api_base is None
 
     # key_3: OpenAI
@@ -55,7 +60,7 @@ def test_build_key_pool():
 
     # key_4: Alternating index fallback
     assert pool[3].key_id == "key_4"
-    assert pool[3].model == "gemini/gemini-3.5-flash-lite"
+    assert pool[3].model == DEFAULT_FALLBACK_MODEL
 
 
 def test_parse_simulate_failure_header():
