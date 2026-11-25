@@ -14,7 +14,7 @@ Built strictly in accordance with [`docs/PRD.md`](docs/PRD.md) and governed by [
   - Sessions Endpoint: `GET https://lyftr-project.shubhojitmitra.com/sessions/{session_id}/messages`
   - Interactive Swagger Docs: [https://lyftr-project.shubhojitmitra.com/docs](https://lyftr-project.shubhojitmitra.com/docs)
   - ReDoc Documentation: [https://lyftr-project.shubhojitmitra.com/redoc](https://lyftr-project.shubhojitmitra.com/redoc)
-- **Direct IP Fallback (HTTP)**: [http://104.214.177.88/](http://104.214.177.88/) (or port 3000)
+- **Direct Server Access**: `http://<EC2_PUBLIC_IP>/` (or port 3000)
 
 ---
 
