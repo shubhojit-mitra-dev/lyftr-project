@@ -1,15 +1,17 @@
 import logging
-from typing import Optional, Any
+import inspect
+from typing import Optional, Any, Literal
 from fastapi import HTTPException
 
-from app.domain.interfaces.repository_interface import IMessageRepository
-from app.domain.interfaces.gateway_interface import ILLMGateway
+from app.domain.protocols.repository_protocol import MessageRepositoryProtocol
+from app.domain.protocols.gateway_protocol import LLMGatewayProtocol
 from app.dto.chat_dto import (
     ChatRequestDTO,
     ChatResponseDTO,
     SessionHistoryResponseDTO,
     MessageHistoryItemDTO,
     HealthResponseDTO,
+    ChatMetadataDTO,
 )
 
 logger = logging.getLogger(__name__)
@@ -18,7 +20,7 @@ logger = logging.getLogger(__name__)
 class ChatService:
     """Application Service coordinating repository, gateway, and business logic."""
 
-    def __init__(self, repository: IMessageRepository, gateway: ILLMGateway):
+    def __init__(self, repository: MessageRepositoryProtocol, gateway: LLMGatewayProtocol):
         self._repository = repository
         self._gateway = gateway
 
@@ -41,28 +43,26 @@ class ChatService:
 
         llm_messages.append({"role": "user", "content": request.message})
 
-        res = self._gateway.complete(
+        completed = self._gateway.complete(
             messages=llm_messages,
             x_simulate_failure=x_simulate_failure,
         )
-        if hasattr(res, "__await__"):
-            reply_text, metadata = await res
+        if inspect.isawaitable(completed):
+            reply_text, metadata = await completed
         else:
-            reply_text, metadata = res
+            reply_text, metadata = completed  # type: ignore[assignment]
 
-
-        from schemas import ChatMetadata
-
-        # Ensure metadata is converted into dict or ChatMetadata
-        meta_dict = metadata.model_dump() if hasattr(metadata, "model_dump") else metadata
-        if not isinstance(metadata, ChatMetadata):
-            metadata = ChatMetadata(**meta_dict)
+        persisted_metadata: Optional[dict[str, Any]] = (
+            metadata.model_dump() if hasattr(metadata, "model_dump") else (metadata if isinstance(metadata, dict) else None)
+        )
+        if not isinstance(metadata, ChatMetadataDTO):
+            metadata = ChatMetadataDTO(**(persisted_metadata or {}))
 
         await self._repository.add_turn(
             session_id=request.session_id,
             user_content=request.message,
             assistant_content=reply_text,
-            metadata=meta_dict,
+            metadata=persisted_metadata,
         )
 
         return ChatResponseDTO(
@@ -70,7 +70,6 @@ class ChatService:
             reply=reply_text,
             metadata=metadata,
         )
-
 
     async def get_session_history(self, session_id: str) -> SessionHistoryResponseDTO:
         """Fetch session history excluding system prompt."""
@@ -81,9 +80,10 @@ class ChatService:
         turns = await self._repository.get_messages(session_id)
         items: list[MessageHistoryItemDTO] = []
         for turn in turns:
-            role = turn.role if hasattr(turn, "role") else turn["role"]
+            raw_role = turn.role if hasattr(turn, "role") else turn["role"]
+            role: Literal["user", "assistant"] = "assistant" if raw_role == "assistant" else "user"
             content = turn.content if hasattr(turn, "content") else turn["content"]
-            meta = turn.metadata if hasattr(turn, "metadata") else turn.get("metadata")
+            meta = getattr(turn, "metadata", None)
             is_assistant = role == "assistant"
             items.append(
                 MessageHistoryItemDTO(
