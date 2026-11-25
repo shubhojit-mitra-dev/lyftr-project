@@ -109,20 +109,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup SSH Key & Deploy to Azure VM
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.AZURE_VM_HOST }}
-          username: ${{ secrets.AZURE_VM_USER }}
-          key: ${{ secrets.AZURE_VM_SSH_KEY }}
-          script_stop: true
-          script: |
+      - name: Setup SSH & Deploy to Azure VM
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AZURE_VM_SSH_KEY }}" > ~/.ssh/azure_key.pem
+          chmod 600 ~/.ssh/azure_key.pem
+
+          echo "=== Copying Production Compose File ==="
+          scp -i ~/.ssh/azure_key.pem -o StrictHostKeyChecking=no docker-compose.prod.yml azureuser@${{ secrets.AZURE_VM_HOST }}:/home/azureuser/app/docker-compose.yml
+
+          echo "=== Deploying on Azure VM ==="
+          ssh -i ~/.ssh/azure_key.pem -o StrictHostKeyChecking=no azureuser@${{ secrets.AZURE_VM_HOST }} 'bash -s' << 'EOF'
             set -e
-            echo "=== Step 1: Navigating to App Directory ==="
-            mkdir -p /home/azureuser/app/data
             cd /home/azureuser/app
 
-            echo "=== Step 2: Writing Production .env securely ==="
             cat << 'ENVFILE' > .env
             LLM_API_KEYS=${{ secrets.LLM_API_KEYS }}
             DATABASE_URL=sqlite:////data/app.db
@@ -134,59 +134,17 @@ jobs:
             ENVFILE
             chmod 600 .env
 
-            echo "=== Step 3: Writing docker-compose.yml ==="
-            cat << 'COMPOSEFILE' > docker-compose.yml
-            services:
-              backend:
-                image: shubhojitmitradev/lyftr-backend:latest
-                container_name: llm_chatbot_backend
-                restart: always
-                env_file:
-                  - .env
-                volumes:
-                  - /home/azureuser/app/data:/data
-                healthcheck:
-                  test: ["CMD-SHELL", "curl -f http://localhost:8000/health || exit 1"]
-                  interval: 10s
-                  timeout: 5s
-                  retries: 3
-                  start_period: 10s
-
-              frontend:
-                image: shubhojitmitradev/lyftr-frontend:latest
-                container_name: llm_chatbot_frontend
-                restart: always
-                ports:
-                  - "80:80"
-                  - "3000:3000"
-                depends_on:
-                  backend:
-                    condition: service_healthy
-                healthcheck:
-                  test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:80/ || exit 1"]
-                  interval: 15s
-                  timeout: 5s
-                  retries: 3
-                  start_period: 5s
-            COMPOSEFILE
-
-            echo "=== Step 4: Pulling latest images ==="
             docker compose pull
-
-            echo "=== Step 5: Rolling update containers ==="
             docker compose up -d --remove-orphans
 
-            echo "=== Step 6: Verifying Deployment Health ==="
-            sleep 5
             for i in $(seq 1 12); do
               if curl -s -f http://127.0.0.1/health > /dev/null; then
                 echo "Deployment Health Check Passed!"
                 curl -s http://127.0.0.1/health
                 exit 0
               fi
-              echo "Waiting for backend healthy state... ($i/12)"
+              echo "Waiting for healthy backend... ($i/12)"
               sleep 5
             done
-            echo "Health check failed after 60 seconds"
             exit 1
-
+          EOF
