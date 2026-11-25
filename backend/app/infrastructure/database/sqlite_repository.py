@@ -6,17 +6,21 @@ from typing import Optional, Any
 import aiosqlite
 
 from app.domain.models.message import MessageEntity
-from app.domain.interfaces.repository_interface import IMessageRepository
 
 logger = logging.getLogger(__name__)
 
 
-class SQLiteMessageRepository(IMessageRepository):
-    """Clean SQLite repository implementation adhering to IMessageRepository."""
+class SQLiteMessageRepository:
+    """Clean SQLite repository implementation adhering to MessageRepositoryProtocol."""
 
-    def __init__(self, database_url: str):
-        self.database_url = database_url
-        self.db_path = self._resolve_db_path(database_url)
+    def __init__(self, database_url: str = "", db_path: Optional[str] = None):
+        if db_path:
+            self.database_url = f"sqlite:///{db_path}"
+            self.db_path = db_path
+        else:
+            self.database_url = database_url or "sqlite:////data/app.db"
+            self.db_path = self._resolve_db_path(self.database_url)
+
 
     def _resolve_db_path(self, url: str) -> str:
         """Parse sqlite:// URL and ensure target directory exists."""
